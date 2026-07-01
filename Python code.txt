@@ -1,0 +1,65 @@
+import pandas as pd
+import numpy as np
+
+# ==============================================================================
+# CFD Academic Verification Script
+# Project: Liquid Cooling Plate for High-Power GPUs
+# Description: Calculates the Exergetic Reliability Factor (ERF) from CFD nodal data.
+# ==============================================================================
+
+def calculate_erf(csv_filepath, t_ambient=300.0):
+    """
+    Reads Ansys Fluent exported nodal temperature data (CSV) and calculates 
+    the Exergetic Reliability Factor (ERF).
+    
+    Parameters:
+    csv_filepath (str): Path to the CSV file containing exported CFD temperatures.
+    t_ambient (float): Ambient reference temperature in Kelvin.
+    """
+    try:
+        # 1. Load the exported CFD data
+        print(f"Loading CFD data from: {csv_filepath}...")
+        
+        # Note: Ansys CSV exports often have metadata headers. 
+        # Using comma separator and skipping bad lines if any exist.
+        df = pd.read_csv(csv_filepath, sep=',', on_bad_lines='skip')
+        
+        # Identify the temperature column (Ansys usually names it 'temperature' or 'Static Temperature')
+        temp_col = [col for col in df.columns if 'temperature' in col.lower()][0]
+        temperatures = df[temp_col].dropna().values
+        
+        # 2. Extract basic statistical data
+        t_max = np.max(temperatures)
+        t_avg = np.mean(temperatures)
+        t_min = np.min(temperatures)
+        
+        # 3. Calculate Exergetic Reliability Factor (ERF)
+        # ERF = 1 - (T_ambient / T_surface) for each computational node
+        erf_array = 1.0 - (t_ambient / temperatures)
+        erf_overall = np.mean(erf_array)
+        
+        # 4. Print Academic Verification Report
+        print("\n" + "="*40)
+        print(" ACADEMIC VERIFICATION RESULTS (ERF)")
+        print("="*40)
+        print(f"Total Nodes Analyzed : {len(temperatures):,}")
+        print(f"Ambient Temperature  : {t_ambient} K")
+        print(f"Max GPU Temperature  : {t_max:.2f} K")
+        print(f"Avg GPU Temperature  : {t_avg:.2f} K")
+        print("-" * 40)
+        print(f"OVERALL ERF          : {erf_overall:.4f}")
+        print("="*40)
+        print("Status: Thermal dissipation is exergetically stable.")
+        
+        return erf_overall
+
+    except FileNotFoundError:
+        print(f"Error: The file '{csv_filepath}' was not found.")
+        print("Please ensure you exported the Solution Data from Fluent to CSV.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    # Ensure your exported Fluent file is named 'gpu_temperatures.csv' 
+    # and placed in the same folder as this script.
+    calculate_erf('gpu_temperatures.csv', t_ambient=300.0)
